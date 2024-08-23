@@ -9,7 +9,7 @@ class ReplaceInlineScripts
 
     public function __construct(
         ScriptFinder $scriptFinder,
-        CspNonceGenerator $cspNonceGenerator,
+        CspNonceGenerator $cspNonceGenerator
     ) {
         $this->scriptFinder = $scriptFinder;
         $this->cspNonceGenerator = $cspNonceGenerator;
