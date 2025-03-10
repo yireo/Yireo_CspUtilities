@@ -15,7 +15,7 @@ class ScriptFinder
             return [];
         }
 
-        if (false === preg_match_all('#<script([^>]*)>(.*)</script>#msUi', $html, $matches)) {
+        if (!preg_match_all('#<script([^>]*)>(.*)</script>#msUi', $html, $matches)) {
             return [];
         }
 
