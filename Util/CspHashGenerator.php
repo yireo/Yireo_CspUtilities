@@ -3,7 +3,6 @@
 namespace Yireo\CspUtilities\Util;
 
 use Magento\Csp\Model\Collector\DynamicCollector;
-use Magento\Csp\Model\Policy\FetchPolicy;
 use Magento\Csp\Model\Policy\FetchPolicyFactory;
 use Magento\Framework\ObjectManagerInterface;
 use ReflectionException;
