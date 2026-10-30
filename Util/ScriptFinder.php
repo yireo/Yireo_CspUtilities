@@ -4,13 +4,15 @@ namespace Yireo\CspUtilities\Util;
 
 class ScriptFinder
 {
+    private const WHITESPACE = " \n\r\t\v\0";
+
     /**
      * @param string $html
      * @return string[]
      */
     public function find(string $html): array
     {
-        $html = trim($html);
+        $html = trim($html, self::WHITESPACE);
         if (empty($html)) {
             return [];
         }
@@ -27,7 +29,7 @@ class ScriptFinder
         foreach ($matches[0] as $matchIndex => $match) {
             $fullScript = $matches[0][$matchIndex];
             $scriptAttributes = $matches[1][$matchIndex];
-            $inlineJs = trim($matches[2][$matchIndex]);
+            $inlineJs = trim($matches[2][$matchIndex], self::WHITESPACE);
             if (empty($inlineJs)) {
                 continue;
             }
@@ -44,7 +46,7 @@ class ScriptFinder
 
     private function needsCsp(string $scriptAttributes): bool
     {
-        if (empty(trim($scriptAttributes))) {
+        if (empty(trim($scriptAttributes, self::WHITESPACE))) {
             return true;
         }
 
