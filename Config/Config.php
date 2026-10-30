@@ -3,6 +3,7 @@
 namespace Yireo\CspUtilities\Config;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Store\Model\ScopeInterface;
 use Yireo\CspUtilities\Config\Source\InlineScriptOptions;
 
 class Config
@@ -17,7 +18,10 @@ class Config
 
     public function getInlineScriptMode(): string
     {
-        $value = $this->scopeConfig->getValue('csp_utilities/settings/inline_script_mode');
+        $value = $this->scopeConfig->getValue(
+            'csp_utilities/settings/inline_script_mode',
+            ScopeInterface::SCOPE_STORE
+        );
         if (false === empty($value)) {
             return $value;
         }
