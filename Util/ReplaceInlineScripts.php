@@ -56,8 +56,8 @@ class ReplaceInlineScripts
 
     private function addCspHash(string $script): void
     {
-        $script = preg_replace('/<script([^>]?)>/', '', $script);
-        $script = str_replace('</script>', '', $script);
+        $script = (string)preg_replace('#^<script\b[^>]*>#i', '', $script);
+        $script = (string)preg_replace('#</script>$#i', '', $script);
         $this->cspHashGenerator->generate($script);
     }
 }
