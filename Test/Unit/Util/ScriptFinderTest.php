@@ -19,7 +19,7 @@ class ScriptFinderTest extends TestCase
         $this->assertEquals($scriptCount, count($scriptFinder->find($html)), $html);
     }
 
-    public function getHtmlSamples(): array
+    public static function getHtmlSamples(): array
     {
         return [
             ["<div>\n</div>", 0],
@@ -31,6 +31,10 @@ class ScriptFinderTest extends TestCase
             ['<div><script type="application/javascript">foobar</script></div>', 1],
             ['<div><script type="text/x-magento-init">foobar</script></div>', 0],
             ['<div><script>test1</script><script>test2</script></div>', 2],
+            ['<div><script defer>foobar</script></div>', 1],
+            ['<div><SCRIPT>foobar</SCRIPT></div>', 1],
+            ['<div><script type="module">foobar</script></div>', 0],
+            ['<div><script type="text/x-magento-template">foobar</script></div>', 0],
         ];
     }
 }
