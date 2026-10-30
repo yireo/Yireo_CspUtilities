@@ -2,6 +2,9 @@
     "module_name": "Yireo_CspUtilities",
     "composer_name": "yireo/magento2-csp-utilities",
     "sequence": [
-        "Magento_Csp"
-    ]
+        "Magento_Csp",
+        "Magento_Store"
+    ],
+    "phpcs_severity": "7",
+    "phpstan_level": "3"
 }
