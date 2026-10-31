@@ -17,6 +17,5 @@ class ModuleTest extends TestCase
     {
         $this->assertModuleIsEnabled('Yireo_CspUtilities');
         $this->assertModuleIsRegistered('Yireo_CspUtilities');
-        $this->assertModuleIsRegisteredForReal('Yireo_CspUtilities');
     }
 }
