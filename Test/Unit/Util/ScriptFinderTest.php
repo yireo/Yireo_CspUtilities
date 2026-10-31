@@ -35,6 +35,29 @@ class ScriptFinderTest extends TestCase
             ['<div><SCRIPT>foobar</SCRIPT></div>', 1],
             ['<div><script type="module">foobar</script></div>', 0],
             ['<div><script type="text/x-magento-template">foobar</script></div>', 0],
+            ["<div><script type='text/javascript'>foobar</script></div>", 1],
+            ["<div><script>\n \t</script></div>", 0],
+            ['<div><script src="https://example.com/foo.js"></script></div>', 0],
+            ["<div><script\n  type=\"text/javascript\"\n  defer>foobar</script></div>", 1],
+            ["  \n\t ", 0],
+            ['', 0],
+            ['<div><script data-type="foobar">foobar</script></div>', 1],
+            ['<div><script type="TEXT/JavaScript">foobar</script></div>', 1],
+            ['<div><script type=text/javascript defer>foobar</script></div>', 1],
+            ['<div><script type=text/x-magento-init>foobar</script></div>', 0],
+            ['<div><script data-nonce="foobar">foobar</script></div>', 1],
+            ['<div><script data-foo="x" nonce="foobar">foobar</script></div>', 0],
         ];
+    }
+
+    public function testFindReturnsFullScriptTags(): void
+    {
+        $html = "<div><script>var a = 1;</script>\n<script type=\"text/x-magento-init\">{}</script>"
+            . "\n<script defer>\nvar b = 2;\n</script></div>";
+
+        $this->assertSame(
+            ['<script>var a = 1;</script>', "<script defer>\nvar b = 2;\n</script>"],
+            (new ScriptFinder())->find($html)
+        );
     }
 }

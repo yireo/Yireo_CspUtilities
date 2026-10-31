@@ -50,12 +50,12 @@ class ScriptFinder
             return true;
         }
 
-        if (strstr($scriptAttributes, 'nonce=')) {
+        if (preg_match('/(?:^|\s)nonce\s*=/i', $scriptAttributes)) {
             return false;
         }
 
-        if (preg_match('/type=([\"\']?)([^\"\']*)/msi', $scriptAttributes, $match)) {
-            if (false === in_array($match[2], ['application/javascript', 'text/javascript'])) {
+        if (preg_match('/(?:^|\s)type\s*=\s*([\"\']?)([^\"\'\s>]*)\1/i', $scriptAttributes, $match)) {
+            if (false === in_array(strtolower($match[2]), ['application/javascript', 'text/javascript'])) {
                 return false;
             }
         }
