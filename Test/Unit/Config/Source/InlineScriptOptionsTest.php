@@ -12,5 +12,8 @@ class InlineScriptOptionsTest extends TestCase
         $options = (new InlineScriptOptions())->toOptionArray();
 
         $this->assertSame(['nonce', 'hash'], array_column($options, 'value'));
+        foreach ($options as $option) {
+            $this->assertNotEmpty((string)$option['label']);
+        }
     }
 }

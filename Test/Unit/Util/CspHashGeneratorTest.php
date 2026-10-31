@@ -7,6 +7,7 @@ use Magento\Csp\Model\Policy\FetchPolicy;
 use Magento\Framework\ObjectManagerInterface;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
+use stdClass;
 use Yireo\CspUtilities\Util\CspHashGenerator;
 
 class CspHashGeneratorTest extends TestCase
@@ -32,6 +33,15 @@ class CspHashGeneratorTest extends TestCase
             ->willReturn($fetchPolicy);
 
         (new CspHashGenerator($objectManager))->generate($script);
+    }
+
+    public function testGenerateSkipsWithUnexpectedObject(): void
+    {
+        $objectManager = $this->createMock(ObjectManagerInterface::class);
+        $objectManager->method('get')->willReturn(new stdClass());
+        $objectManager->expects($this->never())->method('create');
+
+        (new CspHashGenerator($objectManager))->generate('alert(1);');
     }
 
     public function testGenerateSkipsWithoutMagentoCsp(): void

@@ -27,6 +27,23 @@ class ConfigTest extends TestCase
         $this->assertTrue($config->generateHashes());
     }
 
+    public function testEmptyValueFallsBackToNonceMode(): void
+    {
+        $config = new Config($this->getScopeConfig(''));
+
+        $this->assertSame('nonce', $config->getInlineScriptMode());
+        $this->assertTrue($config->generateNonces());
+    }
+
+    public function testUnknownValueDisablesNoncesAndHashes(): void
+    {
+        $config = new Config($this->getScopeConfig('foobar'));
+
+        $this->assertSame('foobar', $config->getInlineScriptMode());
+        $this->assertFalse($config->generateNonces());
+        $this->assertFalse($config->generateHashes());
+    }
+
     public function testReadsValueInStoreScope(): void
     {
         $scopeConfig = $this->createMock(ScopeConfigInterface::class);

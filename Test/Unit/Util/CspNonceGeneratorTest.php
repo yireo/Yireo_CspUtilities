@@ -6,6 +6,7 @@ use Magento\Csp\Helper\CspNonceProvider;
 use Magento\Framework\ObjectManagerInterface;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
+use stdClass;
 use Yireo\CspUtilities\Util\CspNonceGenerator;
 
 class CspNonceGeneratorTest extends TestCase
@@ -19,6 +20,14 @@ class CspNonceGeneratorTest extends TestCase
         $objectManager->method('get')->with(CspNonceProvider::class)->willReturn($cspNonceProvider);
 
         $this->assertSame('abc123', (new CspNonceGenerator($objectManager))->getNonce());
+    }
+
+    public function testGetNonceReturnsEmptyStringWithUnexpectedObject(): void
+    {
+        $objectManager = $this->createMock(ObjectManagerInterface::class);
+        $objectManager->method('get')->willReturn(new stdClass());
+
+        $this->assertSame('', (new CspNonceGenerator($objectManager))->getNonce());
     }
 
     public function testGetNonceReturnsEmptyStringWithoutMagentoCsp(): void

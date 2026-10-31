@@ -37,6 +37,41 @@ class ReplaceInlineScriptsTest extends TestCase
     }
 
     /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     */
+    public function testKeepsExistingNonceAndAddsNoHashesInNonceMode()
+    {
+        $script = "console.log('nonce-mode-without-hash');";
+        $html = '<div><script nonce="existing">var a = 1;</script><script>' . $script . '</script></div>';
+        $result = $this->getReplaceInlineScripts()->replace($html);
+
+        $this->assertStringContainsString('<script nonce="existing">var a = 1;</script>', $result);
+        $this->assertSame(2, substr_count($result, 'nonce='));
+
+        $hash = base64_encode(hash('sha256', $script, true));
+        $this->assertNotContains($hash, $this->getScriptSrcHashes());
+    }
+
+    /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode hash
+     */
+    public function testSkipsNonJavaScriptInHashMode()
+    {
+        $magentoInit = '{"*":{"hash-mode-magento-init":{}}}';
+        $module = "import 'hash-mode-module';";
+        $html = '<div><script type="text/x-magento-init">' . $magentoInit . '</script>'
+            . '<script type="module">' . $module . '</script><script>var a = 1;</script></div>';
+
+        $result = $this->getReplaceInlineScripts()->replace($html);
+        $this->assertSame($html, $result);
+        $this->assertStringNotContainsString('nonce=', $result);
+
+        $hashes = $this->getScriptSrcHashes();
+        $this->assertNotContains(base64_encode(hash('sha256', $magentoInit, true)), $hashes);
+        $this->assertNotContains(base64_encode(hash('sha256', $module, true)), $hashes);
+    }
+
+    /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode hash
      * @dataProvider getScripts
      */
