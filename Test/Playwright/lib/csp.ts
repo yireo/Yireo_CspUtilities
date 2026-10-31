@@ -11,6 +11,13 @@ export const fixtureScripts = {
     textJavascript: 'cspUtilitiesTextJavascript',
 };
 
+/**
+ * Rendered without ReplaceInlineScripts, so CSP must block it
+ */
+export const unprocessedScript = 'cspUtilitiesUnprocessed';
+
+export const magentoInitMarker = 'cspUtilitiesMagentoInit';
+
 const token = () => process.env.TEST_TOKEN;
 
 /**
@@ -95,6 +102,45 @@ export async function expectScriptExecuted(page: Page, datasetKey: string) {
         () => page.evaluate(key => document.body.dataset[key], datasetKey),
         `Inline script ${datasetKey} was executed`
     ).toBe('executed');
+}
+
+export async function expectScriptNotExecuted(page: Page, datasetKey: string) {
+    expect(
+        await page.evaluate(key => document.body.dataset[key], datasetKey),
+        `Inline script ${datasetKey} was blocked`
+    ).toBeUndefined();
+}
+
+/**
+ * Record CSP violations of the next navigation; for inline scripts, the event target is the blocked script element
+ */
+export async function collectCspViolations(page: Page) {
+    await page.addInitScript(() => {
+        const violations: string[] = [];
+        (window as any).cspUtilitiesViolations = violations;
+        document.addEventListener('securitypolicyviolation', event => {
+            if (event.target instanceof HTMLScriptElement) {
+                violations.push(event.target.textContent ?? '');
+            }
+        });
+    });
+}
+
+export async function getViolatedScripts(page: Page): Promise<string[]> {
+    return page.evaluate(() => (window as any).cspUtilitiesViolations ?? []);
+}
+
+/**
+ * Return the opening tag and content of the x-magento-init fixture script from the server HTML,
+ * because Luma removes x-magento-init scripts from the DOM once processed
+ */
+export async function getMagentoInitScript(response: Response): Promise<{openingTag: string, content: string}> {
+    const html = await response.text();
+    const matches = Array.from(html.matchAll(/(<script\b[^>]*>)([^<]*)<\/script>/gi))
+        .filter(match => match[2].includes(magentoInitMarker));
+    expect(matches.length, 'x-magento-init fixture script').toBe(1);
+
+    return {openingTag: matches[0][1], content: matches[0][2]};
 }
 
 export function sha256(content: string): string {

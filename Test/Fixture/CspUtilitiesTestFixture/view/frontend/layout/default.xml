@@ -5,6 +5,8 @@
             <block name="yireo_csp_utilities_test_fixture.inline_scripts"
                    class="Yireo\CspUtilitiesTestFixture\Block\InlineScripts"
                    template="Yireo_CspUtilitiesTestFixture::inline-scripts.phtml"/>
+            <block name="yireo_csp_utilities_test_fixture.unprocessed_script"
+                   template="Yireo_CspUtilitiesTestFixture::unprocessed-script.phtml"/>
         </referenceContainer>
     </body>
 </page>
