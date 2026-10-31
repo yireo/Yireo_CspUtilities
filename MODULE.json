@@ -3,6 +3,7 @@
     "composer_name": "yireo/magento2-csp-utilities",
     "sequence": [
         "Magento_Backend",
+        "Magento_Config",
         "Magento_Csp",
         "Magento_Store"
     ],
