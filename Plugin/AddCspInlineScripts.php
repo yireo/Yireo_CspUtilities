@@ -13,7 +13,7 @@ class AddCspInlineScripts
     private readonly ReplaceInlineScripts $replaceInlineScripts;
     private readonly ScopeConfigInterface $scopeConfig;
     private readonly HttpRequest $request;
-    private readonly array $allowedBlocks = [];
+    private array $allowedBlocks = [];
 
     public function __construct(
         ReplaceInlineScripts $replaceInlineScripts,
@@ -29,7 +29,7 @@ class AddCspInlineScripts
 
     public function afterToHtml(Template $block, $html): string
     {
-        if (false === in_array((string)$block->getNameInLayout(), $this->allowedBlocks(), true)) {
+        if (false === in_array((string)$block->getNameInLayout(), $this->allowedBlocks, true)) {
             return (string)$html;
         }
 
