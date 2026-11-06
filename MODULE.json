@@ -8,5 +8,35 @@
         "Magento_Store"
     ],
     "phpcs_severity": "7",
-    "phpstan_level": "3"
+    "phpstan_level": "3",
+    "php_versions": [
+        "7.4",
+        "8.1",
+        "8.2",
+        "8.3",
+        "8.4"
+    ],
+    "skip_magento_versions": [],
+    "skip_css_utils": false,
+    "modules": [
+        "Magento_Backend",
+        "Magento_Config",
+        "Magento_Csp",
+        "Magento_Directory",
+        "Magento_Store",
+        "Magento_Theme"
+    ],
+    "components": [],
+    "config": [
+        {
+            "path": "csp_utilities/settings/inline_script_mode",
+            "label": "Settings > Inline Script Mode",
+            "description": ""
+        }
+    ],
+    "tests": {
+        "unit": 20,
+        "integration": 14,
+        "functional": 0
+    }
 }
