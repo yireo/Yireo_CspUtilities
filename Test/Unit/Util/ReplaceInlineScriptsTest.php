@@ -53,6 +53,26 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
     }
 
+    public function testAddsNonceOnlyToOpeningTagNotToScriptStringsInBody(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<script>document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;</script>';
+        $expected = '<script nonce="abc123">document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;</script>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testKeepsExistingNonceWithoutDuplicating(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<script nonce="other">var a = 1;</script>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+    }
+
     public function testKeepsHtmlWithoutNonce(): void
     {
         $this->setMode(true, false);
