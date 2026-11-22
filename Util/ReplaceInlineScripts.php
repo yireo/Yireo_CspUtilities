@@ -50,7 +50,7 @@ class ReplaceInlineScripts
             return $html;
         }
 
-        $newScript = str_replace('<script', '<script nonce="'.$nonce.'"', $script);
+        $newScript = (string)preg_replace('#^<script#i', '<script nonce="'.$nonce.'"', $script, 1);
         return str_replace($script, $newScript, $html);
     }
 
