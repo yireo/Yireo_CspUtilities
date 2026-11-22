@@ -64,6 +64,41 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
     }
 
+    public function testAddsNonceToUpperCaseScriptTag(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<div><SCRIPT>var a = 1;</SCRIPT></div>';
+        $expected = '<div><script nonce="abc123">var a = 1;</SCRIPT></div>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testAddsNonceOnlyToOpeningTagWithAttributes(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<script type="text/javascript" defer>var s = \'<script type="text/javascript">\';</script>';
+        $expected = '<script nonce="abc123" type="text/javascript" defer>'
+            . 'var s = \'<script type="text/javascript">\';</script>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testHashesUntouchedBodyWhenAddingNonce(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $body = 'document.write(\'<script src="/a.js"><\\/script>\');';
+        $this->cspHashGenerator->expects($this->once())->method('generate')->with($body);
+
+        $result = $this->getReplaceInlineScripts()->replace('<script>' . $body . '</script>');
+        $this->assertSame('<script nonce="abc123">' . $body . '</script>', $result);
+    }
+
     public function testKeepsExistingNonceWithoutDuplicating(): void
     {
         $this->setMode(true, false);

@@ -9,7 +9,13 @@ export type InlineScriptMode = 'nonce' | 'hash';
 export const fixtureScripts = {
     plain: 'cspUtilitiesPlain',
     textJavascript: 'cspUtilitiesTextJavascript',
+    bodyMarkup: 'cspUtilitiesBodyMarkup',
 };
+
+/**
+ * Script markup inside the body of the bodyMarkup fixture script, which must be left untouched
+ */
+export const bodyMarkup = '<script src="/csp-utilities.js"></script>';
 
 /**
  * Rendered without ReplaceInlineScripts, so CSP must block it

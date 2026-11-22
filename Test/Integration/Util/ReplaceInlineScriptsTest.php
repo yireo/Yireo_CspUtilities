@@ -39,6 +39,20 @@ class ReplaceInlineScriptsTest extends TestCase
     /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
      */
+    public function testAddsNonceOnlyToOpeningTagInNonceMode()
+    {
+        $body = 'document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;';
+        $result = $this->getReplaceInlineScripts()->replace('<div><script>' . $body . '</script></div>');
+
+        $this->assertSame(1, substr_count($result, 'nonce='));
+        $this->assertSame(1, preg_match('#^<div><script nonce="([^"]+)">(.*)</script></div>$#s', $result, $matches));
+        $this->assertSame($body, $matches[2]);
+        $this->assertContains(base64_decode($matches[1]), $this->getScriptSrcNonces());
+    }
+
+    /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     */
     public function testKeepsExistingNonceAndAddsNoHashesInNonceMode()
     {
         $script = "console.log('nonce-mode-without-hash');";

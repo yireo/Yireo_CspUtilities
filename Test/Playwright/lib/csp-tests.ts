@@ -11,6 +11,7 @@ import {
     collectCspViolations,
     getViolatedScripts,
     fixtureScripts,
+    bodyMarkup,
     unprocessedScript,
     sha256,
     InlineScriptMode,
@@ -62,6 +63,17 @@ export function defineCspUtilitiesTests(theme: string) {
     });
 
     for (const mode of modes) {
+        test(`leaves script markup inside an inline script body untouched in ${mode} mode`, async function ({page}) {
+            await configureCsp(page, mode, theme);
+            await openHomepage(page);
+
+            await expectScriptExecuted(page, fixtureScripts.bodyMarkup);
+            expect(await page.evaluate(() => (window as any).cspUtilitiesBodyMarkup)).toBe(bodyMarkup);
+
+            const script = await getFixtureScript(page, fixtureScripts.bodyMarkup);
+            expect(script.content).not.toContain('nonce=');
+        });
+
         test(`only blocks unprocessed inline scripts in ${mode} mode`, async function ({page}) {
             await collectCspViolations(page);
             await configureCsp(page, mode, theme);

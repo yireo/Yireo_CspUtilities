@@ -47,7 +47,16 @@ class ScriptFinderTest extends TestCase
             ['<div><script type=text/x-magento-init>foobar</script></div>', 0],
             ['<div><script data-nonce="foobar">foobar</script></div>', 1],
             ['<div><script data-foo="x" nonce="foobar">foobar</script></div>', 0],
+            ['<div><script>document.write(\'<script src="/a.js"><\\/script>\');</script></div>', 1],
+            ['<div><script>var t = `<script>`;</script></div>', 1],
         ];
+    }
+
+    public function testFindReturnsScriptWithScriptMarkupInBodyAsSingleMatch(): void
+    {
+        $script = '<script>document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;</script>';
+
+        $this->assertSame([$script], (new ScriptFinder())->find('<div>' . $script . '</div>'));
     }
 
     public function testFindReturnsFullScriptTags(): void
