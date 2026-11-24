@@ -2,37 +2,54 @@
 
 namespace Yireo\CspUtilities\Plugin;
 
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ScopeInterface;
 use Yireo\CspUtilities\Util\ReplaceInlineScripts;
+use Yireo\CspUtilities\ViewModel\CspMarker;
 
 class AddCspInlineScripts
 {
-    private readonly ReplaceInlineScripts $replaceInlineScripts;
-    private readonly ScopeConfigInterface $scopeConfig;
-    private readonly HttpRequest $request;
-    private array $allowedBlocks = [];
+    private const BLOCK_FLAG = 'csp_utilities';
+    private const BLOCK_MARKER = 'csp_marker';
 
+    /**
+     * @param ReplaceInlineScripts $replaceInlineScripts
+     * @param CspMarker $cspMarker
+     * @param string[] $allowedBlocks
+     */
     public function __construct(
-        ReplaceInlineScripts $replaceInlineScripts,
-        ScopeConfigInterface $scopeConfig,
-        HttpRequest $request,
-        array $allowedBlocks = [],
+        private readonly ReplaceInlineScripts $replaceInlineScripts,
+        private readonly CspMarker $cspMarker,
+        private readonly array $allowedBlocks = []
     ) {
-        $this->replaceInlineScripts = $replaceInlineScripts;
-        $this->scopeConfig = $scopeConfig;
-        $this->request = $request;
-        $this->allowedBlocks = $allowedBlocks;
     }
 
-    public function afterToHtml(Template $block, $html): string
+    public function beforeToHtml(Template $block): void
     {
-        if (false === in_array((string)$block->getNameInLayout(), $this->allowedBlocks, true)) {
-            return (string)$html;
+        if ($this->isAllowed($block) && false === $block->hasData(self::BLOCK_MARKER)) {
+            $block->setData(self::BLOCK_MARKER, $this->cspMarker);
+        }
+    }
+
+    public function afterToHtml(Template $block, mixed $html): string
+    {
+        $html = (string)$html;
+        if ($html === '' || false === $this->isAllowed($block)) {
+            return $html;
         }
 
-        return $this->replaceInlineScripts->replace((string)$html);
+        return $this->replaceInlineScripts->replace($html);
+    }
+
+    private function isAllowed(Template $block): bool
+    {
+        if (true === (bool)$block->getData(self::BLOCK_FLAG)) {
+            return true;
+        }
+
+        if ($this->allowedBlocks === []) {
+            return false;
+        }
+
+        return in_array((string)$block->getNameInLayout(), $this->allowedBlocks, true);
     }
 }
