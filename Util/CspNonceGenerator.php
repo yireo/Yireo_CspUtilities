@@ -4,26 +4,22 @@ namespace Yireo\CspUtilities\Util;
 
 use Magento\Csp\Helper\CspNonceProvider;
 use Magento\Framework\ObjectManagerInterface;
-use ReflectionException;
 
 class CspNonceGenerator
 {
-    private ObjectManagerInterface $objectManager;
-
     public function __construct(
-        ObjectManagerInterface $objectManager
+        private readonly ObjectManagerInterface $objectManager
     ) {
-        $this->objectManager = $objectManager;
     }
 
     public function getNonce(): string
     {
-        try {
-            $cspNonceProvider = $this->objectManager->get(CspNonceProvider::class);
-        } catch (ReflectionException $reflectionException) {
+        // CspNonceProvider was only added in Magento 2.4.7, so it can not be injected directly
+        if (false === class_exists(CspNonceProvider::class)) {
             return '';
         }
 
+        $cspNonceProvider = $this->objectManager->get(CspNonceProvider::class);
         if (false === $cspNonceProvider instanceof CspNonceProvider) {
             return '';
         }

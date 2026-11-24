@@ -4,40 +4,19 @@ namespace Yireo\CspUtilities\Util;
 
 use Magento\Csp\Model\Collector\DynamicCollector;
 use Magento\Csp\Model\Policy\FetchPolicy;
-use Magento\Framework\ObjectManagerInterface;
-use ReflectionException;
 
 class CspHashGenerator
 {
-    private ObjectManagerInterface $objectManager;
-
     public function __construct(
-        ObjectManagerInterface $objectManager
+        private readonly DynamicCollector $dynamicCollector
     ) {
-        $this->objectManager = $objectManager;
     }
 
     public function generate(string $script): void
     {
-        try {
-            $dynamicCollector = $this->objectManager->get(DynamicCollector::class);
-        } catch (ReflectionException $reflectionException) {
-            return;
-        }
-
-        if (false === $dynamicCollector instanceof DynamicCollector) {
-            return;
-        }
-
         $hash = base64_encode(hash('sha256', $script, true));
-        $fetchPolicy = $this->objectManager->create(FetchPolicy::class, [
-            'id' => 'script-src',
-            'noneAllowed' => false,
-            'hashValues' => [
-                $hash => 'sha256',
-            ],
-        ]);
-
-        $dynamicCollector->add($fetchPolicy);
+        $this->dynamicCollector->add(
+            new FetchPolicy('script-src', false, [], [], false, false, false, [], [$hash => 'sha256'])
+        );
     }
 }
