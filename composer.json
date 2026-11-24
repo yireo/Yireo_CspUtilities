@@ -1,6 +1,6 @@
 {
     "name": "yireo/magento2-csp-utilities",
-    "version": "1.0.3",
+    "version": "2.0.0",
     "description": "CSP utilities for various Magento modules",
     "type": "magento2-module",
     "require": {
