@@ -33,7 +33,7 @@ class ScriptFinderTest extends TestCase
             ['<div><script>test1</script><script>test2</script></div>', 2],
             ['<div><script defer>foobar</script></div>', 1],
             ['<div><SCRIPT>foobar</SCRIPT></div>', 1],
-            ['<div><script type="module">foobar</script></div>', 0],
+            ['<div><script type="module">foobar</script></div>', 1],
             ['<div><script type="text/x-magento-template">foobar</script></div>', 0],
             ["<div><script type='text/javascript'>foobar</script></div>", 1],
             ["<div><script>\n \t</script></div>", 0],
@@ -54,6 +54,21 @@ class ScriptFinderTest extends TestCase
             ['<div><script SRC=/x.js>foobar</script></div>', 0],
             ["<div><script\n src='/x.js'>foobar</script></div>", 0],
             ['<div><script data-src="/x.js">foobar</script></div>', 1],
+            ['<div><script-data>foobar</script></div>', 0],
+            ['<div><scripts>foobar</script></div>', 0],
+            ['<div><script-data>foo</script><script>bar</script></div>', 1],
+            ['<div><script>foo</script ><p>text</p><script>bar</script></div>', 2],
+            ["<div><script>foo</script\n><script>bar</SCRIPT ></div>", 2],
+            ['<div><script data-x=">" type="text/x-magento-template">foobar</script></div>', 0],
+            ['<div><script data-x="a > b" type="text/javascript">foobar</script></div>', 1],
+            ['<div><script data-x="type=text/html">foobar</script></div>', 1],
+            ['<div><script data-x="nonce=abc">foobar</script></div>', 1],
+            ['<div><script data-x=\'src=/x.js\'>foobar</script></div>', 1],
+            ['<div><script type=" text/javascript ">foobar</script></div>', 1],
+            ['<div><script type="">foobar</script></div>', 1],
+            ['<div><script type>foobar</script></div>', 1],
+            ['<div><script NONCE>foobar</script></div>', 0],
+            ['<div><script/>foobar</script></div>', 1],
         ];
     }
 
@@ -73,5 +88,47 @@ class ScriptFinderTest extends TestCase
             ['<script>var a = 1;</script>', "<script defer>\nvar b = 2;\n</script>"],
             (new ScriptFinder())->find($html)
         );
+    }
+
+    public function testFindDoesNotMatchAcrossClosingTagWithWhitespace(): void
+    {
+        $this->assertSame(
+            ['<script>foo</script >', '<script>bar</script>'],
+            (new ScriptFinder())->find('<div><script>foo</script ><p>text</p><script>bar</script></div>')
+        );
+    }
+
+    public function testFindKeepsGreaterThanInsideQuotedAttribute(): void
+    {
+        $script = '<script data-x="a > b">foobar</script>';
+
+        $this->assertSame([$script], (new ScriptFinder())->find('<div>' . $script . '</div>'));
+    }
+
+    public function testGetOpeningTag(): void
+    {
+        $scriptFinder = new ScriptFinder();
+
+        $this->assertSame('<script data-x="a > b">', $scriptFinder->getOpeningTag('<script data-x="a > b">foo</script>'));
+        $this->assertSame('<SCRIPT>', $scriptFinder->getOpeningTag('<SCRIPT>foo</SCRIPT>'));
+        $this->assertSame('', $scriptFinder->getOpeningTag('<script-data>foo</script>'));
+        $this->assertSame('', $scriptFinder->getOpeningTag('<div><script>foo</script></div>'));
+    }
+
+    public function testGetAttributes(): void
+    {
+        $attributes = (new ScriptFinder())->getAttributes(
+            "<script TYPE='text/javascript' defer data-a=\"x > y\" data-b=unquoted data-a=\"second\">foo</script>"
+        );
+
+        $this->assertSame(
+            ['type' => 'text/javascript', 'defer' => '', 'data-a' => 'x > y', 'data-b' => 'unquoted'],
+            $attributes
+        );
+    }
+
+    public function testGetAttributesOfNonScriptIsEmpty(): void
+    {
+        $this->assertSame([], (new ScriptFinder())->getAttributes('<script-data type="text/javascript">foo</script>'));
     }
 }
