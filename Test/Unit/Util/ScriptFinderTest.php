@@ -49,6 +49,11 @@ class ScriptFinderTest extends TestCase
             ['<div><script data-foo="x" nonce="foobar">foobar</script></div>', 0],
             ['<div><script>document.write(\'<script src="/a.js"><\\/script>\');</script></div>', 1],
             ['<div><script>var t = `<script>`;</script></div>', 1],
+            ['<div><script src="https://evil.example/x.js">;</script></div>', 0],
+            ['<div><script type="text/javascript" src="/x.js">foobar</script></div>', 0],
+            ['<div><script SRC=/x.js>foobar</script></div>', 0],
+            ["<div><script\n src='/x.js'>foobar</script></div>", 0],
+            ['<div><script data-src="/x.js">foobar</script></div>', 1],
         ];
     }
 

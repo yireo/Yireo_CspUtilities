@@ -26,6 +26,8 @@ bin/magento module:enable Yireo_CspUtilities
   - `nonce`: Generate CSP nonces for Yireo extensions. This is the default, but it is currently not as secure in Magento, if the HTML is cached;
   - `hash`: Generate CSP hashes for Yireo extensions. This is more secure. However, with this option, your HTTP headers could grow, which could lead into webserver limits;
 
+Only inline scripts are processed: Scripts with a `src` attribute, a `nonce` attribute or a non-JavaScript `type` are skipped, so that a nonce never bypasses the host whitelist of the CSP `script-src` directive.
+
 ## Current status
 
 <!-- badges.test.start -->
