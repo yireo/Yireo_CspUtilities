@@ -8,21 +8,21 @@ use Yireo\CspUtilities\Config\Source\InlineScriptOptions;
 
 class Config
 {
-    private ScopeConfigInterface $scopeConfig;
+    private const ALLOWED_MODES = [InlineScriptOptions::NONCE, InlineScriptOptions::HASH];
 
     public function __construct(
-        ScopeConfigInterface $scopeConfig
+        private readonly ScopeConfigInterface $scopeConfig
     ) {
-        $this->scopeConfig = $scopeConfig;
     }
 
     public function getInlineScriptMode(): string
     {
-        $value = $this->scopeConfig->getValue(
+        $value = (string)$this->scopeConfig->getValue(
             'csp_utilities/settings/inline_script_mode',
             ScopeInterface::SCOPE_STORE
         );
-        if (false === empty($value)) {
+
+        if (in_array($value, self::ALLOWED_MODES, true)) {
             return $value;
         }
 

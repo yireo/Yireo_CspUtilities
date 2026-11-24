@@ -35,12 +35,12 @@ class ConfigTest extends TestCase
         $this->assertTrue($config->generateNonces());
     }
 
-    public function testUnknownValueDisablesNoncesAndHashes(): void
+    public function testUnknownValueFallsBackToNonceMode(): void
     {
         $config = new Config($this->getScopeConfig('foobar'));
 
-        $this->assertSame('foobar', $config->getInlineScriptMode());
-        $this->assertFalse($config->generateNonces());
+        $this->assertSame('nonce', $config->getInlineScriptMode());
+        $this->assertTrue($config->generateNonces());
         $this->assertFalse($config->generateHashes());
     }
 
