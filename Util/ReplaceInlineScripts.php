@@ -29,8 +29,21 @@ class ReplaceInlineScripts
             return '';
         }
 
-        $scripts = $this->scriptFinder->find($html);
+        return $this->replaceScripts($html, $this->scriptFinder->find($html));
+    }
+
+    /**
+     * @param string $html
+     * @param string[] $scripts
+     * @return string
+     */
+    public function replaceScripts(string $html, array $scripts): string
+    {
         foreach ($scripts as $script) {
+            if (empty($script) || false === str_contains($html, $script)) {
+                continue;
+            }
+
             if ($this->config->generateNonces()) {
                 $html = $this->addCspNonce($html, $script);
             }

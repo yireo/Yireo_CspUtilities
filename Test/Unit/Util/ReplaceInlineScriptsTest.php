@@ -160,6 +160,38 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
     }
 
+    public function testReplaceScriptsOnlyReplacesGivenScripts(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<script>var a = 1;</script><script>var b = 2;</script>';
+        $expected = '<script nonce="abc123">var a = 1;</script><script>var b = 2;</script>';
+
+        $result = $this->getReplaceInlineScripts()->replaceScripts($html, ['<script>var a = 1;</script>']);
+        $this->assertSame($expected, $result);
+    }
+
+    public function testReplaceScriptsIgnoresScriptsNotPresentInHtml(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+        $this->cspHashGenerator->expects($this->never())->method('generate');
+
+        $html = '<script>var a = 1;</script>';
+        $result = $this->getReplaceInlineScripts()->replaceScripts($html, ['<script>var b = 2;</script>']);
+        $this->assertSame($html, $result);
+    }
+
+    public function testReplaceScriptsWithEmptyListKeepsHtml(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+
+        $html = '<script>var a = 1;</script>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceScripts($html, []));
+    }
+
     private function setMode(bool $generateNonces, bool $generateHashes): void
     {
         $this->config->method('generateNonces')->willReturn($generateNonces);
