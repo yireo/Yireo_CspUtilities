@@ -4,23 +4,26 @@ namespace Yireo\CspUtilities\Test\Unit\Util;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Yireo\CspUtilities\Config\Config;
 use Yireo\CspUtilities\Util\CspHashGenerator;
 use Yireo\CspUtilities\Util\CspNonceGenerator;
+use Yireo\CspUtilities\Util\InlineScriptMode;
 use Yireo\CspUtilities\Util\ReplaceInlineScripts;
 use Yireo\CspUtilities\Util\ScriptFinder;
+use Yireo\CspUtilities\ViewModel\CspMarker;
 
 class ReplaceInlineScriptsTest extends TestCase
 {
     private CspNonceGenerator&MockObject $cspNonceGenerator;
     private CspHashGenerator&MockObject $cspHashGenerator;
-    private Config&MockObject $config;
+    private InlineScriptMode&MockObject $inlineScriptMode;
+    private CspMarker $cspMarker;
 
     protected function setUp(): void
     {
         $this->cspNonceGenerator = $this->createMock(CspNonceGenerator::class);
         $this->cspHashGenerator = $this->createMock(CspHashGenerator::class);
-        $this->config = $this->createMock(Config::class);
+        $this->inlineScriptMode = $this->createMock(InlineScriptMode::class);
+        $this->cspMarker = new CspMarker();
     }
 
     public function testEmptyHtmlSkipsAllCollaborators(): void
@@ -34,7 +37,8 @@ class ReplaceInlineScriptsTest extends TestCase
             $scriptFinder,
             $this->cspNonceGenerator,
             $this->cspHashGenerator,
-            $this->config
+            $this->inlineScriptMode,
+            $this->cspMarker
         );
 
         $this->assertSame('', $replaceInlineScripts->replace(''));
@@ -46,9 +50,65 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
-        $html = '<div><script>var a = 1;</script><p>text</p><script type="text/javascript">var b = 2;</script></div>';
+        $html = '<div><script ' . $this->marker() . '>var a = 1;</script><p>text</p>'
+            . '<script ' . $this->marker() . ' type="text/javascript">var b = 2;</script></div>';
         $expected = '<div><script nonce="abc123">var a = 1;</script><p>text</p>'
             . '<script nonce="abc123" type="text/javascript">var b = 2;</script></div>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testSkipsScriptsWithoutMarker(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+        $this->cspHashGenerator->expects($this->never())->method('generate');
+
+        $html = '<div><script>var a = 1;</script><script type="text/javascript">var b = 2;</script></div>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    /**
+     * @dataProvider getForgedMarkers
+     */
+    public function testSkipsScriptsWithForgedMarker(string $openingTag): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+        $this->cspHashGenerator->expects($this->never())->method('generate');
+
+        $html = '<div>' . $openingTag . 'alert(1);</script></div>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public static function getForgedMarkers(): array
+    {
+        return [
+            ['<script data-csp-utilities>'],
+            ['<script data-csp-utilities="">'],
+            ['<script data-csp-utilities="1">'],
+            ['<script data-csp-utilities="0123456789abcdef0123456789abcdef">'],
+            ['<script data-x=\'data-csp-utilities="foo"\'>'],
+        ];
+    }
+
+    public function testSkipsMarkerOnNonScriptElement(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+        $this->cspHashGenerator->expects($this->never())->method('generate');
+
+        $html = '<div><script-data ' . $this->marker() . '>alert(1);</script></div>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testOnlyReplacesMarkedScripts(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<script ' . $this->marker() . '>var a = 1;</script><script>var b = 2;</script>';
+        $expected = '<script nonce="abc123">var a = 1;</script><script>var b = 2;</script>';
 
         $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
     }
@@ -58,10 +118,13 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->setMode(true, false);
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
-        $html = '<script>document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;</script>';
-        $expected = '<script nonce="abc123">document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;</script>';
+        $body = 'document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;';
+        $html = '<script ' . $this->marker() . '>' . $body . '</script>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame(
+            '<script nonce="abc123">' . $body . '</script>',
+            $this->getReplaceInlineScripts()->replace($html)
+        );
     }
 
     public function testAddsNonceToUpperCaseScriptTag(): void
@@ -69,19 +132,21 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->setMode(true, false);
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
-        $html = '<div><SCRIPT>var a = 1;</SCRIPT></div>';
+        $html = '<div><SCRIPT ' . strtoupper(CspMarker::ATTRIBUTE) . '="' . $this->cspMarker->getToken() . '">'
+            . 'var a = 1;</SCRIPT></div>';
         $expected = '<div><script nonce="abc123">var a = 1;</SCRIPT></div>';
 
         $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
     }
 
-    public function testAddsNonceOnlyToOpeningTagWithAttributes(): void
+    public function testKeepsOtherAttributesWhenRemovingMarker(): void
     {
         $this->setMode(true, false);
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
-        $html = '<script type="text/javascript" defer>var s = \'<script type="text/javascript">\';</script>';
-        $expected = '<script nonce="abc123" type="text/javascript" defer>'
+        $html = '<script type="text/javascript" ' . $this->marker() . ' data-x="a > b" defer>'
+            . 'var s = \'<script type="text/javascript">\';</script>';
+        $expected = '<script nonce="abc123" type="text/javascript" data-x="a > b" defer>'
             . 'var s = \'<script type="text/javascript">\';</script>';
 
         $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
@@ -95,7 +160,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $body = 'document.write(\'<script src="/a.js"><\\/script>\');';
         $this->cspHashGenerator->expects($this->once())->method('generate')->with($body);
 
-        $result = $this->getReplaceInlineScripts()->replace('<script>' . $body . '</script>');
+        $result = $this->getReplaceInlineScripts()->replace('<script ' . $this->marker() . '>' . $body . '</script>');
         $this->assertSame('<script nonce="abc123">' . $body . '</script>', $result);
     }
 
@@ -104,17 +169,30 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->setMode(true, false);
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
-        $html = '<script nonce="other">var a = 1;</script>';
+        $html = '<script nonce="other" ' . $this->marker() . '>var a = 1;</script>';
         $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
     }
 
-    public function testKeepsHtmlWithoutNonce(): void
+    /**
+     * @dataProvider getInvalidNonces
+     */
+    public function testOnlyRemovesMarkerWithInvalidNonce(string $nonce): void
     {
         $this->setMode(true, false);
-        $this->cspNonceGenerator->method('getNonce')->willReturn('');
+        $this->cspNonceGenerator->method('getNonce')->willReturn($nonce);
 
-        $html = '<div><script>var a = 1;</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $html = '<div><script ' . $this->marker() . '>var a = 1;</script></div>';
+        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public static function getInvalidNonces(): array
+    {
+        return [
+            [''],
+            ['abc"><script>alert(1)</script>'],
+            ['abc def'],
+            ['abc==='],
+        ];
     }
 
     public function testAddsNonceToEachOfIdenticalScripts(): void
@@ -122,42 +200,49 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->setMode(true, false);
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
-        $html = '<script>var a = 1;</script><script>var a = 1;</script>';
+        $script = '<script ' . $this->marker() . '>var a = 1;</script>';
         $expected = '<script nonce="abc123">var a = 1;</script><script nonce="abc123">var a = 1;</script>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($script . $script));
     }
 
     /**
      * @dataProvider getHashSamples
      */
-    public function testGeneratesHashOfScriptBodyInHashMode(string $html, string $body): void
-    {
+    public function testGeneratesHashOfScriptBodyInHashMode(
+        string $openingTag,
+        string $expectedOpeningTag,
+        string $closingTag,
+        string $body
+    ): void {
         $this->setMode(false, true);
         $this->cspNonceGenerator->expects($this->never())->method('getNonce');
         $this->cspHashGenerator->expects($this->once())->method('generate')->with($body);
 
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $html = '<div>' . sprintf($openingTag, $this->marker()) . $body . $closingTag . '</div>';
+        $expected = '<div>' . $expectedOpeningTag . $body . $closingTag . '</div>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
     }
 
     public static function getHashSamples(): array
     {
         return [
-            ['<div><script>var a = 1;</script></div>', 'var a = 1;'],
-            ['<div><script type="text/javascript" defer>var b = 2;</script></div>', 'var b = 2;'],
-            ['<div><SCRIPT>var c = 3;</SCRIPT></div>', 'var c = 3;'],
-            ["<div><script>\n  var d = 4;\n</script></div>", "\n  var d = 4;\n"],
+            ['<script %s>', '<script>', '</script>', 'var a = 1;'],
+            ['<script type="text/javascript" %s defer>', '<script type="text/javascript" defer>', '</script>', 'var b = 2;'],
+            ['<script %s>', '<script>', '</SCRIPT>', 'var c = 3;'],
+            ['<script %s>', '<script>', '</script >', "\n  var d = 4;\n"],
         ];
     }
 
-    public function testDoesNothingWithUnknownMode(): void
+    public function testOnlyRemovesMarkerWithUnknownMode(): void
     {
         $this->setMode(false, false);
         $this->cspNonceGenerator->expects($this->never())->method('getNonce');
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
-        $html = '<div><script>var a = 1;</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $html = '<div><script ' . $this->marker() . '>var a = 1;</script></div>';
+        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replace($html));
     }
 
     public function testReplaceScriptsOnlyReplacesGivenScripts(): void
@@ -183,6 +268,16 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->assertSame($html, $result);
     }
 
+    public function testReplaceScriptsIgnoresNonScriptElements(): void
+    {
+        $this->setMode(true, true);
+        $this->cspNonceGenerator->expects($this->never())->method('getNonce');
+        $this->cspHashGenerator->expects($this->never())->method('generate');
+
+        $html = '<script-data>alert(1);</script>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceScripts($html, [$html]));
+    }
+
     public function testReplaceScriptsWithEmptyListKeepsHtml(): void
     {
         $this->setMode(true, true);
@@ -192,10 +287,15 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->assertSame($html, $this->getReplaceInlineScripts()->replaceScripts($html, []));
     }
 
-    private function setMode(bool $generateNonces, bool $generateHashes): void
+    private function marker(): string
     {
-        $this->config->method('generateNonces')->willReturn($generateNonces);
-        $this->config->method('generateHashes')->willReturn($generateHashes);
+        return $this->cspMarker->getAttribute();
+    }
+
+    private function setMode(bool $useNonces, bool $useHashes): void
+    {
+        $this->inlineScriptMode->method('useNonces')->willReturn($useNonces);
+        $this->inlineScriptMode->method('useHashes')->willReturn($useHashes);
     }
 
     private function getReplaceInlineScripts(): ReplaceInlineScripts
@@ -204,7 +304,8 @@ class ReplaceInlineScriptsTest extends TestCase
             new ScriptFinder(),
             $this->cspNonceGenerator,
             $this->cspHashGenerator,
-            $this->config
+            $this->inlineScriptMode,
+            $this->cspMarker
         );
     }
 }

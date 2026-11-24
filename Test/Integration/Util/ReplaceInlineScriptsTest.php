@@ -7,6 +7,7 @@ use Magento\Csp\Model\Policy\FetchPolicy;
 use Magento\Framework\App\ObjectManager;
 use PHPUnit\Framework\TestCase;
 use Yireo\CspUtilities\Util\ReplaceInlineScripts;
+use Yireo\CspUtilities\ViewModel\CspMarker;
 
 /**
  * @magentoAppArea frontend
@@ -20,15 +21,19 @@ class ReplaceInlineScriptsTest extends TestCase
 
     /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     * @magentoCache full_page disabled
      */
-    public function testAddsNoncesInNonceMode()
+    public function testAddsNoncesToMarkedScriptsInNonceMode()
     {
-        $html = '<div><script>var a = 1;</script><script type="text/javascript">var b = 2;</script>'
-            . '<script type="text/x-magento-init">{}</script></div>';
+        $html = '<div><script ' . $this->marker() . '>var a = 1;</script>'
+            . '<script ' . $this->marker() . ' type="text/javascript">var b = 2;</script>'
+            . '<script type="text/x-magento-init">{}</script><script>var c = 3;</script></div>';
         $result = $this->getReplaceInlineScripts()->replace($html);
 
         $this->assertSame(2, preg_match_all('#<script nonce="([^"]+)"#', $result, $matches));
         $this->assertStringContainsString('<script type="text/x-magento-init">{}</script>', $result);
+        $this->assertStringContainsString('<script>var c = 3;</script>', $result);
+        $this->assertStringNotContainsString(CspMarker::ATTRIBUTE, $result);
 
         $nonces = $this->getScriptSrcNonces();
         foreach ($matches[1] as $nonce) {
@@ -38,11 +43,13 @@ class ReplaceInlineScriptsTest extends TestCase
 
     /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     * @magentoCache full_page disabled
      */
     public function testAddsNonceOnlyToOpeningTagInNonceMode()
     {
         $body = 'document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;';
-        $result = $this->getReplaceInlineScripts()->replace('<div><script>' . $body . '</script></div>');
+        $html = '<div><script ' . $this->marker() . '>' . $body . '</script></div>';
+        $result = $this->getReplaceInlineScripts()->replace($html);
 
         $this->assertSame(1, substr_count($result, 'nonce='));
         $this->assertSame(1, preg_match('#^<div><script nonce="([^"]+)">(.*)</script></div>$#s', $result, $matches));
@@ -52,11 +59,13 @@ class ReplaceInlineScriptsTest extends TestCase
 
     /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     * @magentoCache full_page disabled
      */
     public function testKeepsExistingNonceAndAddsNoHashesInNonceMode()
     {
         $script = "console.log('nonce-mode-without-hash');";
-        $html = '<div><script nonce="existing">var a = 1;</script><script>' . $script . '</script></div>';
+        $html = '<div><script nonce="existing">var a = 1;</script>'
+            . '<script ' . $this->marker() . '>' . $script . '</script></div>';
         $result = $this->getReplaceInlineScripts()->replace($html);
 
         $this->assertStringContainsString('<script nonce="existing">var a = 1;</script>', $result);
@@ -67,22 +76,46 @@ class ReplaceInlineScriptsTest extends TestCase
     }
 
     /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode nonce
+     * @magentoCache full_page enabled
+     */
+    public function testFallsBackToHashesOnCacheablePagesInNonceMode()
+    {
+        $script = "console.log('nonce-mode-cached-page');";
+        $result = $this->getReplaceInlineScripts()->replace('<script ' . $this->marker() . '>' . $script . '</script>');
+
+        $this->assertSame('<script>' . $script . '</script>', $result);
+        $this->assertContains(base64_encode(hash('sha256', $script, true)), $this->getScriptSrcHashes());
+    }
+
+    /**
      * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode hash
      */
     public function testSkipsNonJavaScriptInHashMode()
     {
         $magentoInit = '{"*":{"hash-mode-magento-init":{}}}';
-        $module = "import 'hash-mode-module';";
-        $html = '<div><script type="text/x-magento-init">' . $magentoInit . '</script>'
-            . '<script type="module">' . $module . '</script><script>var a = 1;</script></div>';
+        $template = '<p>hash-mode-template</p>';
+        $html = '<div><script type="text/x-magento-init" ' . $this->marker() . '>' . $magentoInit . '</script>'
+            . '<script type="text/x-magento-template" ' . $this->marker() . '>' . $template . '</script></div>';
 
         $result = $this->getReplaceInlineScripts()->replace($html);
         $this->assertSame($html, $result);
-        $this->assertStringNotContainsString('nonce=', $result);
 
         $hashes = $this->getScriptSrcHashes();
         $this->assertNotContains(base64_encode(hash('sha256', $magentoInit, true)), $hashes);
-        $this->assertNotContains(base64_encode(hash('sha256', $module, true)), $hashes);
+        $this->assertNotContains(base64_encode(hash('sha256', $template, true)), $hashes);
+    }
+
+    /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode hash
+     */
+    public function testSkipsUnmarkedScriptsInHashMode()
+    {
+        $script = "console.log('hash-mode-unmarked');";
+        $html = '<div><script>' . $script . '</script><script data-csp-utilities="forged">' . $script . '</script></div>';
+
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertNotContains(base64_encode(hash('sha256', $script, true)), $this->getScriptSrcHashes());
     }
 
     /**
@@ -91,8 +124,10 @@ class ReplaceInlineScriptsTest extends TestCase
      */
     public function testAddsHashesInHashMode(string $openingTag, string $script)
     {
-        $html = '<div>' . $openingTag . $script . '</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $html = '<div>' . sprintf($openingTag, $this->marker()) . $script . '</script></div>';
+        $expected = '<div>' . sprintf($openingTag, '') . $script . '</script></div>';
+        $expected = str_replace([' >', '  '], ['>', ' '], $expected);
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
 
         $hash = base64_encode(hash('sha256', $script, true));
         $this->assertContains($hash, $this->getScriptSrcHashes(), 'No hash for ' . $openingTag);
@@ -101,10 +136,16 @@ class ReplaceInlineScriptsTest extends TestCase
     public static function getScripts(): array
     {
         return [
-            ['<script>', "console.log('plain');"],
-            ['<script type="text/javascript">', "console.log('text/javascript');"],
-            ['<script type="application/javascript" defer>', "console.log('application/javascript');"],
+            ['<script %s>', "console.log('plain');"],
+            ['<script type="text/javascript" %s>', "console.log('text/javascript');"],
+            ['<script type="application/javascript" %s defer>', "console.log('application/javascript');"],
+            ['<script type="module" %s>', "console.log('module');"],
         ];
+    }
+
+    private function marker(): string
+    {
+        return ObjectManager::getInstance()->get(CspMarker::class)->getAttribute();
     }
 
     private function getReplaceInlineScripts(): ReplaceInlineScripts

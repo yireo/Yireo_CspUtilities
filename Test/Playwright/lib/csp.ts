@@ -10,6 +10,15 @@ export const fixtureScripts = {
     plain: 'cspUtilitiesPlain',
     textJavascript: 'cspUtilitiesTextJavascript',
     bodyMarkup: 'cspUtilitiesBodyMarkup',
+    flagged: 'cspUtilitiesFlagged',
+};
+
+/**
+ * Rendered through ReplaceInlineScripts, but without the marker of the current request, so CSP must block them
+ */
+export const unmarkedScripts = {
+    unmarked: 'cspUtilitiesUnmarked',
+    forged: 'cspUtilitiesForged',
 };
 
 /**
@@ -69,10 +78,29 @@ export async function configureCsp(page: Page, mode: InlineScriptMode, theme: st
  * Open the homepage, bypassing the full page cache, so the CSP header belongs to this very rendering
  */
 export async function openHomepage(page: Page): Promise<Response> {
-    const response = await page.goto('/?csp_utilities=' + Date.now());
-    expect(response, 'Homepage response').not.toBeNull();
+    return openPage(page, '/');
+}
+
+/**
+ * Open the cart page, which is never cached, so nonces are always used in nonce mode
+ */
+export async function openUncacheablePage(page: Page): Promise<Response> {
+    return openPage(page, '/checkout/cart/');
+}
+
+async function openPage(page: Page, path: string): Promise<Response> {
+    const response = await page.goto(path + '?csp_utilities=' + Date.now());
+    expect(response, `Response of ${path}`).not.toBeNull();
     expect(response!.status()).toBe(200);
     return response!;
+}
+
+/**
+ * Magento only sends public cache headers when the full page cache is enabled and the page is cacheable
+ */
+export async function isPubliclyCacheable(response: Response): Promise<boolean> {
+    const cacheControl = (await response.headerValue('cache-control')) ?? '';
+    return cacheControl.split(',').map(value => value.trim().toLowerCase()).includes('public');
 }
 
 export async function getEnforcedScriptSrc(response: Response): Promise<string> {
@@ -94,10 +122,14 @@ export async function getEnforcedScriptSrc(response: Response): Promise<string> 
 /**
  * Return the fixture script that sets the given body dataset key
  */
-export async function getFixtureScript(page: Page, datasetKey: string): Promise<{content: string, nonce: string}> {
+export async function getFixtureScript(page: Page, datasetKey: string): Promise<{content: string, nonce: string, marker: string | null}> {
     const scripts = await page.evaluate(key => Array.from(document.querySelectorAll('script'))
         .filter(script => (script.textContent ?? '').includes(`document.body.dataset.${key} = `))
-        .map(script => ({content: script.textContent ?? '', nonce: script.nonce})), datasetKey);
+        .map(script => ({
+            content: script.textContent ?? '',
+            nonce: script.nonce,
+            marker: script.getAttribute('data-csp-utilities'),
+        })), datasetKey);
     expect(scripts.length, `Fixture script for ${datasetKey} (is Yireo_CspUtilitiesTestFixture enabled?)`).toBe(1);
 
     return scripts[0];

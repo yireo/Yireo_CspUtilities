@@ -1,0 +1,12 @@
+<?php declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+use Yireo\CspUtilities\ViewModel\CspMarker;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var CspMarker $cspMarker */
+$cspMarker = $block->getData('csp_marker');
+?>
+<script data-csp-utilities="<?= $escaper->escapeHtmlAttr($cspMarker->getToken()) ?>">document.body.dataset.cspUtilitiesFlagged = 'executed';</script>

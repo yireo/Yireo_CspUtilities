@@ -23,10 +23,37 @@ bin/magento module:enable Yireo_CspUtilities
 
 ### Configuration
 - **Inline Script Mode**
-  - `nonce`: Generate CSP nonces for Yireo extensions. This is the default, but it is currently not as secure in Magento, if the HTML is cached;
-  - `hash`: Generate CSP hashes for Yireo extensions. This is more secure. However, with this option, your HTTP headers could grow, which could lead into webserver limits;
+  - `nonce`: Generate CSP nonces for Yireo extensions. This is the default. On pages that are cached by the Full Page Cache, a nonce would be shared between visitors, so hashes are generated instead. With the built-in Full Page Cache and the module `Yireo_PageCacheCspNonceRegenerator`, nonces are still used, because that module regenerates nonces for cached pages. With Varnish, hashes are always used for cacheable pages;
+  - `hash`: Generate CSP hashes for Yireo extensions. However, with this option, your HTTP headers could grow, which could lead into webserver limits;
+
+### Marking inline scripts
+Only inline scripts that carry the marker of the current request are processed by `ReplaceInlineScripts::replace()`. The marker is a random token, generated per request, so that a script injected into the HTML (for instance, via a XSS vulnerability) never receives a valid nonce or hash. Once processed, the marker is removed again.
+
+Add the marker to a script in your template via the ViewModel `Yireo\CspUtilities\ViewModel\CspMarker`:
+
+```xml
+<block name="example" template="Example_Module::example.phtml">
+    <arguments>
+        <argument name="csp_utilities" xsi:type="boolean">true</argument>
+    </arguments>
+</block>
+```
+
+```php
+<?php /** @var \Yireo\CspUtilities\ViewModel\CspMarker $cspMarker */ ?>
+<?php $cspMarker = $block->getData('csp_marker') ?>
+<script data-csp-utilities="<?= $escaper->escapeHtmlAttr($cspMarker->getToken()) ?>">
+    console.log('Hello world');
+</script>
+```
+
+The block argument `csp_utilities` enables processing of the block output and makes the marker available as block data `csp_marker`. Alternatively, add the block name to the `allowedBlocks` argument of `Yireo\CspUtilities\Plugin\AddCspInlineScripts` via DI, or inject the `CspMarker` ViewModel as a block argument yourself and call `ReplaceInlineScripts::replace()` from your own code.
 
 Only inline scripts are processed: Scripts with a `src` attribute, a `nonce` attribute or a non-JavaScript `type` are skipped, so that a nonce never bypasses the host whitelist of the CSP `script-src` directive.
+
+Blocks of which the output is cached in the `block_html` cache (via `cache_lifetime`) are not supported, because the cached output would contain the marker of an earlier request.
+
+Callers that already determined which scripts are trusted (for instance, by comparing them with the scripts in the template file) can pass these scripts to `ReplaceInlineScripts::replaceScripts()` directly, without a marker.
 
 ## Current status
 

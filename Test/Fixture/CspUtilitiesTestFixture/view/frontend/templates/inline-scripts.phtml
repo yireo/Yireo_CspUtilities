@@ -1,4 +1,15 @@
-<script>document.body.dataset.cspUtilitiesPlain = 'executed';</script>
-<script type="text/javascript">document.body.dataset.cspUtilitiesTextJavascript = 'executed';</script>
+<?php declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use Yireo\CspUtilitiesTestFixture\Block\InlineScripts;
+
+/** @var InlineScripts $block */
+/** @var Escaper $escaper */
+$token = $escaper->escapeHtmlAttr($block->getCspMarker()->getToken());
+?>
+<script data-csp-utilities="<?= $token ?>">document.body.dataset.cspUtilitiesPlain = 'executed';</script>
+<script type="text/javascript" data-csp-utilities="<?= $token ?>">document.body.dataset.cspUtilitiesTextJavascript = 'executed';</script>
 <script type="text/x-magento-init">{"#csp-utilities-magento-init":{"cspUtilitiesMagentoInit":{}}}</script>
-<script>window.cspUtilitiesBodyMarkup = '<script src="/csp-utilities.js"><\/script>'; document.body.dataset.cspUtilitiesBodyMarkup = 'executed';</script>
+<script data-csp-utilities="<?= $token ?>">window.cspUtilitiesBodyMarkup = '<script src="/csp-utilities.js"><\/script>'; document.body.dataset.cspUtilitiesBodyMarkup = 'executed';</script>
+<script>document.body.dataset.cspUtilitiesUnmarked = 'executed';</script>
+<script data-csp-utilities="forged">document.body.dataset.cspUtilitiesForged = 'executed';</script>
