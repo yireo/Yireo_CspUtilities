@@ -13,6 +13,7 @@
         "php": ">=8.2 <8.6"
     },
     "require-dev": {
+        "loki/magento2-functional-tests": "@dev",
         "phpunit/phpunit": "^9.5 || ^10.5",
         "yireo/magento2-integration-test-helper": "~0.0"
     },
