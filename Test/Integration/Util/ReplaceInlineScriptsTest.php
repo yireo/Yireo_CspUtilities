@@ -17,6 +17,7 @@ class ReplaceInlineScriptsTest extends TestCase
     public function testEmptyHtml()
     {
         $this->assertSame('', $this->getReplaceInlineScripts()->replace(''));
+        $this->assertSame('', $this->getReplaceInlineScripts()->replaceMarked(''));
     }
 
     /**
@@ -28,7 +29,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $html = '<div><script ' . $this->marker() . '>var a = 1;</script>'
             . '<script ' . $this->marker() . ' type="text/javascript">var b = 2;</script>'
             . '<script type="text/x-magento-init">{}</script><script>var c = 3;</script></div>';
-        $result = $this->getReplaceInlineScripts()->replace($html);
+        $result = $this->getReplaceInlineScripts()->replaceMarked($html);
 
         $this->assertSame(2, preg_match_all('#<script nonce="([^"]+)"#', $result, $matches));
         $this->assertStringContainsString('<script type="text/x-magento-init">{}</script>', $result);
@@ -49,7 +50,7 @@ class ReplaceInlineScriptsTest extends TestCase
     {
         $body = 'document.write(\'<script src="/a.js"><\\/script>\');var t = `<script>`;';
         $html = '<div><script ' . $this->marker() . '>' . $body . '</script></div>';
-        $result = $this->getReplaceInlineScripts()->replace($html);
+        $result = $this->getReplaceInlineScripts()->replaceMarked($html);
 
         $this->assertSame(1, substr_count($result, 'nonce='));
         $this->assertSame(1, preg_match('#^<div><script nonce="([^"]+)">(.*)</script></div>$#s', $result, $matches));
@@ -66,7 +67,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $script = "console.log('nonce-mode-without-hash');";
         $html = '<div><script nonce="existing">var a = 1;</script>'
             . '<script ' . $this->marker() . '>' . $script . '</script></div>';
-        $result = $this->getReplaceInlineScripts()->replace($html);
+        $result = $this->getReplaceInlineScripts()->replaceMarked($html);
 
         $this->assertStringContainsString('<script nonce="existing">var a = 1;</script>', $result);
         $this->assertSame(2, substr_count($result, 'nonce='));
@@ -82,7 +83,7 @@ class ReplaceInlineScriptsTest extends TestCase
     public function testFallsBackToHashesOnCacheablePagesInNonceMode()
     {
         $script = "console.log('nonce-mode-cached-page');";
-        $result = $this->getReplaceInlineScripts()->replace('<script ' . $this->marker() . '>' . $script . '</script>');
+        $result = $this->getReplaceInlineScripts()->replaceMarked('<script ' . $this->marker() . '>' . $script . '</script>');
 
         $this->assertSame('<script>' . $script . '</script>', $result);
         $this->assertContains(base64_encode(hash('sha256', $script, true)), $this->getScriptSrcHashes());
@@ -98,7 +99,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $html = '<div><script type="text/x-magento-init" ' . $this->marker() . '>' . $magentoInit . '</script>'
             . '<script type="text/x-magento-template" ' . $this->marker() . '>' . $template . '</script></div>';
 
-        $result = $this->getReplaceInlineScripts()->replace($html);
+        $result = $this->getReplaceInlineScripts()->replaceMarked($html);
         $this->assertSame($html, $result);
 
         $hashes = $this->getScriptSrcHashes();
@@ -114,7 +115,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $script = "console.log('hash-mode-unmarked');";
         $html = '<div><script>' . $script . '</script><script data-csp-utilities="forged">' . $script . '</script></div>';
 
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceMarked($html));
         $this->assertNotContains(base64_encode(hash('sha256', $script, true)), $this->getScriptSrcHashes());
     }
 
@@ -127,7 +128,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $html = '<div>' . sprintf($openingTag, $this->marker()) . $script . '</script></div>';
         $expected = '<div>' . sprintf($openingTag, '') . $script . '</script></div>';
         $expected = str_replace([' >', '  '], ['>', ' '], $expected);
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
 
         $hash = base64_encode(hash('sha256', $script, true));
         $this->assertContains($hash, $this->getScriptSrcHashes(), 'No hash for ' . $openingTag);
@@ -141,6 +142,18 @@ class ReplaceInlineScriptsTest extends TestCase
             ['<script type="application/javascript" %s defer>', "console.log('application/javascript');"],
             ['<script type="module" %s>', "console.log('module');"],
         ];
+    }
+
+    /**
+     * @magentoConfigFixture current_store csp_utilities/settings/inline_script_mode hash
+     */
+    public function testDeprecatedReplaceAddsHashesOfUnmarkedScripts()
+    {
+        $script = "console.log('deprecated-replace');";
+        $html = '<div><script>' . $script . '</script></div>';
+
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertContains(base64_encode(hash('sha256', $script, true)), $this->getScriptSrcHashes());
     }
 
     private function marker(): string

@@ -42,6 +42,7 @@ class ReplaceInlineScriptsTest extends TestCase
         );
 
         $this->assertSame('', $replaceInlineScripts->replace(''));
+        $this->assertSame('', $replaceInlineScripts->replaceMarked(''));
     }
 
     public function testAddsNoncesInNonceMode(): void
@@ -55,7 +56,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $expected = '<div><script nonce="abc123">var a = 1;</script><p>text</p>'
             . '<script nonce="abc123" type="text/javascript">var b = 2;</script></div>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public function testSkipsScriptsWithoutMarker(): void
@@ -65,7 +66,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
         $html = '<div><script>var a = 1;</script><script type="text/javascript">var b = 2;</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     /**
@@ -78,7 +79,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
         $html = '<div>' . $openingTag . 'alert(1);</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public static function getForgedMarkers(): array
@@ -99,7 +100,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
         $html = '<div><script-data ' . $this->marker() . '>alert(1);</script></div>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public function testOnlyReplacesMarkedScripts(): void
@@ -110,7 +111,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $html = '<script ' . $this->marker() . '>var a = 1;</script><script>var b = 2;</script>';
         $expected = '<script nonce="abc123">var a = 1;</script><script>var b = 2;</script>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public function testAddsNonceOnlyToOpeningTagNotToScriptStringsInBody(): void
@@ -123,7 +124,7 @@ class ReplaceInlineScriptsTest extends TestCase
 
         $this->assertSame(
             '<script nonce="abc123">' . $body . '</script>',
-            $this->getReplaceInlineScripts()->replace($html)
+            $this->getReplaceInlineScripts()->replaceMarked($html)
         );
     }
 
@@ -136,7 +137,7 @@ class ReplaceInlineScriptsTest extends TestCase
             . 'var a = 1;</SCRIPT></div>';
         $expected = '<div><script nonce="abc123">var a = 1;</SCRIPT></div>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public function testKeepsOtherAttributesWhenRemovingMarker(): void
@@ -149,7 +150,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $expected = '<script nonce="abc123" type="text/javascript" data-x="a > b" defer>'
             . 'var s = \'<script type="text/javascript">\';</script>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public function testHashesUntouchedBodyWhenAddingNonce(): void
@@ -160,7 +161,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $body = 'document.write(\'<script src="/a.js"><\\/script>\');';
         $this->cspHashGenerator->expects($this->once())->method('generate')->with($body);
 
-        $result = $this->getReplaceInlineScripts()->replace('<script ' . $this->marker() . '>' . $body . '</script>');
+        $result = $this->getReplaceInlineScripts()->replaceMarked('<script ' . $this->marker() . '>' . $body . '</script>');
         $this->assertSame('<script nonce="abc123">' . $body . '</script>', $result);
     }
 
@@ -170,7 +171,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
 
         $html = '<script nonce="other" ' . $this->marker() . '>var a = 1;</script>';
-        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     /**
@@ -182,7 +183,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspNonceGenerator->method('getNonce')->willReturn($nonce);
 
         $html = '<div><script ' . $this->marker() . '>var a = 1;</script></div>';
-        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public static function getInvalidNonces(): array
@@ -203,7 +204,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $script = '<script ' . $this->marker() . '>var a = 1;</script>';
         $expected = '<script nonce="abc123">var a = 1;</script><script nonce="abc123">var a = 1;</script>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($script . $script));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($script . $script));
     }
 
     /**
@@ -222,7 +223,7 @@ class ReplaceInlineScriptsTest extends TestCase
         $html = '<div>' . sprintf($openingTag, $this->marker()) . $body . $closingTag . '</div>';
         $expected = '<div>' . $expectedOpeningTag . $body . $closingTag . '</div>';
 
-        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replaceMarked($html));
     }
 
     public static function getHashSamples(): array
@@ -242,7 +243,29 @@ class ReplaceInlineScriptsTest extends TestCase
         $this->cspHashGenerator->expects($this->never())->method('generate');
 
         $html = '<div><script ' . $this->marker() . '>var a = 1;</script></div>';
-        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replace($html));
+        $this->assertSame('<div><script>var a = 1;</script></div>', $this->getReplaceInlineScripts()->replaceMarked($html));
+    }
+
+    public function testDeprecatedReplaceAddsNoncesToAllInlineScripts(): void
+    {
+        $this->setMode(true, false);
+        $this->cspNonceGenerator->method('getNonce')->willReturn('abc123');
+
+        $html = '<div><script>var a = 1;</script><script ' . $this->marker() . ' type="text/javascript">var b = 2;</script>'
+            . '<script type="text/x-magento-init">{}</script><script-data>var c = 3;</script></div>';
+        $expected = '<div><script nonce="abc123">var a = 1;</script><script nonce="abc123" type="text/javascript">var b = 2;</script>'
+            . '<script type="text/x-magento-init">{}</script><script-data>var c = 3;</script></div>';
+
+        $this->assertSame($expected, $this->getReplaceInlineScripts()->replace($html));
+    }
+
+    public function testDeprecatedReplaceAddsHashesOfAllInlineScripts(): void
+    {
+        $this->setMode(false, true);
+        $this->cspHashGenerator->expects($this->exactly(2))->method('generate');
+
+        $html = '<div><script>var a = 1;</script><script>var b = 2;</script></div>';
+        $this->assertSame($html, $this->getReplaceInlineScripts()->replace($html));
     }
 
     public function testReplaceScriptsOnlyReplacesGivenScripts(): void

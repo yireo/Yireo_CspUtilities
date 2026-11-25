@@ -25,6 +25,6 @@ class InlineScripts extends Template
 
     protected function _afterToHtml($html)
     {
-        return $this->replaceInlineScripts->replace((string)$html);
+        return $this->replaceInlineScripts->replaceMarked((string)$html);
     }
 }

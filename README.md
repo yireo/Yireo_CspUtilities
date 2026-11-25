@@ -27,7 +27,7 @@ bin/magento module:enable Yireo_CspUtilities
   - `hash`: Generate CSP hashes for Yireo extensions. However, with this option, your HTTP headers could grow, which could lead into webserver limits;
 
 ### Marking inline scripts
-Only inline scripts that carry the marker of the current request are processed by `ReplaceInlineScripts::replace()`. The marker is a random token, generated per request, so that a script injected into the HTML (for instance, via a XSS vulnerability) never receives a valid nonce or hash. Once processed, the marker is removed again.
+Only inline scripts that carry the marker of the current request are processed by `ReplaceInlineScripts::replaceMarked()`. The marker is a random token, generated per request, so that a script injected into the HTML (for instance, via a XSS vulnerability) never receives a valid nonce or hash. Once processed, the marker is removed again.
 
 Add the marker to a script in your template via the ViewModel `Yireo\CspUtilities\ViewModel\CspMarker`:
 
@@ -47,7 +47,9 @@ Add the marker to a script in your template via the ViewModel `Yireo\CspUtilitie
 </script>
 ```
 
-The block argument `csp_utilities` enables processing of the block output and makes the marker available as block data `csp_marker`. Alternatively, add the block name to the `allowedBlocks` argument of `Yireo\CspUtilities\Plugin\AddCspInlineScripts` via DI, or inject the `CspMarker` ViewModel as a block argument yourself and call `ReplaceInlineScripts::replace()` from your own code.
+The block argument `csp_utilities` enables processing of the marked scripts in the block output and makes the marker available as block data `csp_marker`. Alternatively, inject the `CspMarker` ViewModel as a block argument yourself and call `ReplaceInlineScripts::replaceMarked()` from your own code.
+
+The method `ReplaceInlineScripts::replace()` is deprecated: It adds a nonce or hash to all inline scripts in the HTML, including scripts that were injected into it. Blocks that are added to the `allowedBlocks` argument of `Yireo\CspUtilities\Plugin\AddCspInlineScripts` via DI are still processed with `replace()`, for backwards compatibility. Use the block argument `csp_utilities` and the marker instead.
 
 Only inline scripts are processed: Scripts with a `src` attribute, a `nonce` attribute or a non-JavaScript `type` are skipped, so that a nonce never bypasses the host whitelist of the CSP `script-src` directive.
 

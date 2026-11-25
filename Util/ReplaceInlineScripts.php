@@ -20,12 +20,28 @@ class ReplaceInlineScripts
     }
 
     /**
+     * Replace all inline scripts in the HTML, including scripts that were injected into it
+     *
+     * @deprecated Use replaceMarked() instead, so that only scripts with the marker of the current request are trusted
+     * @param string $html
+     * @return string
+     */
+    public function replace(string $html): string
+    {
+        if ($html === '') {
+            return '';
+        }
+
+        return $this->replaceScripts($html, $this->scriptFinder->find($html));
+    }
+
+    /**
      * Only replace the scripts that carry the marker of the current request, see CspMarker::getAttribute()
      *
      * @param string $html
      * @return string
      */
-    public function replace(string $html): string
+    public function replaceMarked(string $html): string
     {
         if ($html === '' || false === stripos($html, CspMarker::ATTRIBUTE)) {
             return $html;

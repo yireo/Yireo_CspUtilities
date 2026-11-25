@@ -26,6 +26,7 @@ class AddCspInlineScriptsTest extends TestCase
     public function testSkipsAllBlocksWithoutAllowlistOrFlag(): void
     {
         $this->replaceInlineScripts->expects($this->never())->method('replace');
+        $this->replaceInlineScripts->expects($this->never())->method('replaceMarked');
         $block = $this->getBlock('foo');
 
         $plugin = $this->getPlugin([]);
@@ -42,16 +43,18 @@ class AddCspInlineScriptsTest extends TestCase
         $this->assertSame(self::HTML, $this->getPlugin(['bar'])->afterToHtml($this->getBlock('foo'), self::HTML));
     }
 
-    public function testReplacesScriptsOfAllowedBlock(): void
+    public function testReplacesAllScriptsOfAllowedBlock(): void
     {
+        $this->replaceInlineScripts->expects($this->never())->method('replaceMarked');
         $this->replaceInlineScripts->expects($this->once())->method('replace')->with(self::HTML)->willReturn('replaced');
 
         $this->assertSame('replaced', $this->getPlugin(['foo'])->afterToHtml($this->getBlock('foo'), self::HTML));
     }
 
-    public function testReplacesScriptsOfFlaggedBlock(): void
+    public function testReplacesMarkedScriptsOfFlaggedBlock(): void
     {
-        $this->replaceInlineScripts->expects($this->once())->method('replace')->willReturn('replaced');
+        $this->replaceInlineScripts->expects($this->never())->method('replace');
+        $this->replaceInlineScripts->expects($this->once())->method('replaceMarked')->willReturn('replaced');
         $block = $this->getBlock('foo', ['csp_utilities' => true]);
 
         $this->assertSame('replaced', $this->getPlugin([])->afterToHtml($block, self::HTML));

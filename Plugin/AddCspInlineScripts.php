@@ -33,19 +33,33 @@ class AddCspInlineScripts
     public function afterToHtml(Template $block, mixed $html): string
     {
         $html = (string)$html;
-        if ($html === '' || false === $this->isAllowed($block)) {
+        if ($html === '') {
             return $html;
         }
 
-        return $this->replaceInlineScripts->replace($html);
+        if ($this->isFlagged($block)) {
+            return $this->replaceInlineScripts->replaceMarked($html);
+        }
+
+        if ($this->isInAllowlist($block)) {
+            return $this->replaceInlineScripts->replace($html);
+        }
+
+        return $html;
     }
 
     private function isAllowed(Template $block): bool
     {
-        if (true === (bool)$block->getData(self::BLOCK_FLAG)) {
-            return true;
-        }
+        return $this->isFlagged($block) || $this->isInAllowlist($block);
+    }
 
+    private function isFlagged(Template $block): bool
+    {
+        return true === (bool)$block->getData(self::BLOCK_FLAG);
+    }
+
+    private function isInAllowlist(Template $block): bool
+    {
         if ($this->allowedBlocks === []) {
             return false;
         }
